@@ -1,37 +1,93 @@
 #include "raylib.h"
+#include "array"
+#include "raymath.h"
 #define MAX_BUILDINGS   100
 
 typedef enum GameScreen { LOGO = 0, TITLE, GAMEPLAY, ENDING } GameScreen;
+const int screenWidth = 800;
+const int screenHeight = 1000;
+const Vector2 playerStartpoint = {0,0};
+
+Vector2 mesh = { 8,10 };
+
+int spacing = 0;
+
+class shape {
+protected:
+    const float cubeWidth = 100;
+    const float cubeHeight = 100;
+
+public:
+
+
+    std::array<Rectangle,   4> arr{};
+
+    virtual void moveshape(Vector2 direction) {
+        for (size_t i = 0; i < arr.size(); i++)
+        {
+
+            arr[i].x += direction.x;
+            arr[i].y += direction.y;
+        }
+    }
+    virtual void rotateShape(Vector2 centerPoint, float angle) = 0;
+        
+    virtual void drawShape(Color color) {
+
+        
+        for (size_t i = 0; i < arr.size(); i++)
+        {
+          DrawRectangle(arr[i].x, arr[i].y, arr[i].width, arr[i].height, color);
+          DrawRectangleLines(arr[i].x, arr[i].y, arr[i].width, arr[i].height, Color(RED));
+        }
+    }
+    virtual float getWidth() = 0;
+
+    virtual float getHeight() = 0;
+};
+
+class cubeShape : public shape{
+public:
+    cubeShape(Vector2 placePoint) {
+        arr[0] = Rectangle{ placePoint.x, placePoint.y, placePoint.x + cubeWidth, placePoint.y + cubeHeight };
+        arr[1] = Rectangle{ placePoint.x + cubeWidth, placePoint.y, cubeWidth, cubeHeight };
+        arr[2] = Rectangle{ placePoint.x, placePoint.y + cubeHeight, cubeWidth, cubeHeight };
+        arr[3] = Rectangle{ placePoint.x + cubeWidth, placePoint.y + cubeHeight, cubeWidth, cubeHeight };
+    }
+
+    virtual void rotateShape(Vector2 centerPoint, float angle) override {
+
+        Vector2MoveTowards(Vector2{ arr[0].x, arr[0].y }, Vector2{}, UINT32_MAX);
+        Vector2MoveTowards(Vector2{ arr[0].x, arr[0].y }, Vector2{}, UINT32_MAX);
+        Vector2MoveTowards(Vector2{ arr[0].x, arr[0].y }, Vector2{}, UINT32_MAX);
+        Vector2MoveTowards(Vector2{ arr[0].x, arr[0].y }, Vector2{}, UINT32_MAX);
+
+     
+        Vector2Rotate(centerPoint, angle);
+
+    }
+
+    virtual float getWidth() override{
+        return arr[0].width + arr[1].width;
+    }
+
+    virtual float getHeight() override {
+        return arr[0].height + arr[1].height;
+    }
+
+    ~cubeShape() = default;
+};
 
 int main(void)
 {
-    const int screenWidth = 800;
-    const int screenHeight = 450;
-
-    Rectangle player = { 400, 280, 40, 40 };
-    Rectangle buildings[MAX_BUILDINGS] = { 0 };
-    Color buildColors[MAX_BUILDINGS] = { 0 };
-
-    int spacing = 0;
-
-    for (int i = 0; i < MAX_BUILDINGS; i++)
-    {
-        buildings[i].width = (float)GetRandomValue(50, 200);
-        buildings[i].height = (float)GetRandomValue(100, 800);
-        buildings[i].y = screenHeight - 130.0f - buildings[i].height;
-        buildings[i].x = -6000.0f + spacing;
-
-        spacing += (int)buildings[i].width;
-        buildColors[i] = Color{(unsigned char)GetRandomValue(200, 240),(unsigned char)GetRandomValue(200, 240),(unsigned char)GetRandomValue(200, 240),255};
-    }
-    
-
     Camera2D camera = { 0 };
-    camera.target = Vector2{ player.x + 20.0f, player.y + 20.0f };
+
     camera.offset = Vector2{ screenWidth / 2.0f, screenHeight / 2.0f };
     camera.rotation = 0.0f;
     camera.zoom = 1.0f;
 
+    cubeShape shape1 = { Vector2{ 0,0 } };
+    
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
 
     int framesCounter = 0;
@@ -40,11 +96,14 @@ int main(void)
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
         // Player movement
-        if (IsKeyDown(KEY_RIGHT)) player.x += 2;
-        else if (IsKeyDown(KEY_LEFT)) player.x -= 2;
+        if (IsKeyPressed(KEY_RIGHT)) shape1.moveshape(Vector2{ shape1.getWidth(),0});
+        else if (IsKeyPressed(KEY_LEFT)) shape1.moveshape(Vector2{ -shape1.getWidth(),0 });
+
+        if (IsKeyPressed(KEY_UP)) shape1.moveshape(Vector2{ 0,-shape1.getHeight() });
+        else if (IsKeyPressed(KEY_DOWN)) shape1.moveshape(Vector2{ 0,shape1.getHeight() });
 
         // Camera target follows player
-        camera.target = Vector2{ player.x + 20, player.y + 20 };
+        camera.target = Vector2{ 400, 500 };
 
         // Camera rotation controls
         if (IsKeyDown(KEY_A)) camera.rotation--;
@@ -67,19 +126,14 @@ int main(void)
             camera.rotation = 0.0f;
         }
 
-
         BeginDrawing();
 
         ClearBackground(RAYWHITE);
-
-        
+      
         BeginMode2D(camera);
 
-        DrawRectangle(-6000, 320, 13000, 8000, DARKGRAY);
-
-        for (int i = 0; i < MAX_BUILDINGS; i++) DrawRectangleRec(buildings[i], buildColors[i]);
-
-        DrawRectangleRec(player, RED);
+        shape1.drawShape(Color(BLACK));
+        //drawMesh(mesh);
 
         EndMode2D();
 

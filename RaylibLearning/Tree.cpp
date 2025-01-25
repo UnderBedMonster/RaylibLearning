@@ -6,7 +6,7 @@
 // Tree Node class
 class TreeNode {
 public:
-    TreeNode(Vector2 value) : data(value) {}
+    TreeNode(Vector3 value) : data(value) {}
 
     void addChild(std::shared_ptr<TreeNode>& child) {
         children.push_back(child);
@@ -16,7 +16,7 @@ public:
         return children;
     }
 
-    const Vector2& getData() {
+    const Vector3& getData() {
         return data;
     }
     // Made the findNode function public
@@ -25,7 +25,7 @@ public:
     }*/
 
 private:
-    Vector2 data;
+    Vector3 data;
     std::list<std::shared_ptr<TreeNode>> children;
     
     // Renamed the findNode function to findNodeHelper to make it private
@@ -51,7 +51,7 @@ public:
     TreeNode* root;
 
 
-    Tree(Vector2 rootValue) {
+    Tree(Vector3 rootValue) {
         root = new TreeNode(rootValue);
     }
 

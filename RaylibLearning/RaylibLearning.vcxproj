@@ -134,10 +134,23 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="PhysicalObj.cpp" />
     <ClCompile Include="Tree.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="PhysicalObj.h" />
     <ClInclude Include="Tree.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\lighting.frag">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="shaders\lighting.vert" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="textures\501900de698c47670536071a511ef8f9.jpg" />
+    <Image Include="textures\dora2.jpg" />
+    <Image Include="textures\SlimeGame.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

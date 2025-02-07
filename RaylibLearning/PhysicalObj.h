@@ -5,6 +5,7 @@
 #include <raymath.h>
 #include <rlgl.h>
 #include <chrono>
+#include <vector>
 
 constexpr static float G_EARTH = 9.80665f;
 
@@ -16,6 +17,19 @@ private:
 	Model Model;
 	float ObjMass;
 	Vector3 Velocity;
+
+     std::vector<Vector2> flattenX()
+	{
+		std::vector<Vector2> FlattedToX = std::vector<Vector2>(ObjMesh.vertexCount);
+
+		for (size_t i = 0; i < ObjMesh.vertexCount; i+=3)
+		{ 
+			FlattedToX[i] = Vector2{ ObjMesh.vertices[i], ObjMesh.vertices[i + 1]};
+		}
+
+		return FlattedToX;
+
+	}
 
 public:
 	PhysicalObj(Vector3 pos, Mesh objmesh, float mass) {
@@ -30,14 +44,27 @@ public:
 
 	void Gravity()
 	{
-		if (Position.y > 0)
+		if (Position.y > 0.f)
 		{
 		AddVelocityObj(Vector3{ 0.f, -((G_EARTH) * ObjMass), 0.f });
 		}
 		else
 		{
-			Position.y = 0;
+			Position.y = 0.f;
 		}
+	}
+
+	bool BasicColision(){
+		for (size_t i = 0; i < ObjMesh.vertexCount; i++)
+		{
+		    std::cout << "Vert " << i << " ";
+			for (size_t j = 0; j < 3; j++)
+			{
+			    std::cout << ObjMesh.vertices[j] << " ; ";
+			}
+	      	std::cout << std::endl;
+		}
+		return true;
 	}
 
 	void ChangeObjPos(Vector3 NewPos)
@@ -56,9 +83,9 @@ public:
 	}
 
 	void update(float deltaTime) {
-		std::cout << "x: " << Velocity.x << " y: " << Velocity.y << " z: " << Velocity.z << std::endl;
-		Gravity();
+		//std::cout << "x: " << Velocity.x << " y: " << Velocity.y << " z: " << Velocity.z << std::endl;
 		Position = Position + (Velocity * deltaTime); // Update position based on velocity and deltaTime
+		Gravity();
 	}
 
 	void SetMaterialMapDiffuse(Texture2D texture) {

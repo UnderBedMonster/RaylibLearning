@@ -2,9 +2,12 @@
 #include <rlgl.h>
 #include <raymath.h>
 #include "PhysicalObj.h"
+#include "QuaternionR.h"
 #include <chrono>
 #include <thread>
 #include <vector>
+#include <cmath>
+
 
 
 
@@ -16,6 +19,7 @@
 
 #define MAX_POINTS  11
 
+#define M_PI 3.14159265358979323846
 
 
 
@@ -35,37 +39,54 @@ void DrawTexturePoly(std::vector<Vector2> vertices, Color color) {
     rlColor4ub(color.r, color.g, color.b, color.a);
 
     // Fan triangulation (works well for convex polygons)
-    for (int i = 1; i < vertices.size() - 1; i++) {
-        rlVertex2f(vertices[0].x, vertices[0].y);       // Center vertex (first point)
-        rlVertex2f(vertices[i].x, vertices[i].y);         // Current vertex
-        rlVertex2f(vertices[i + 1].x, vertices[i + 1].y);   // Next vertex
+    for (int i = 0; i < vertices.size(); i+=3) {
+        rlVertex2f(vertices[i].x, vertices[i].y);       // Center vertex (first point)
+        rlVertex2f(vertices[i+1].x, vertices[i+1].y);         // Current vertex
+        rlVertex2f(vertices[i + 2].x, vertices[i + 2].y);   // Next vertex
     }
 
     rlEnd();
 }
 
-void DrawPolygon(const std::vector<Vector2>& vertices, Color color) {
-    if (vertices.size() < 3) return;
+Vector2 FindFigureCenter(std::vector<Vector2> &points)
+{
+    Vector2 output{ 0,0 };
 
-    for (size_t i = 1; i < vertices.size() - 1; ++i) {
-        DrawTriangle(vertices[0], vertices[i], vertices[i + 1], color);
+    for (size_t i = 0; i < points.size(); i++)
+    {
+        output += points[i];
+    }
+    return (output / points.size());
+}
+
+void DrawPoly(std::vector<Vector2> points, Color color) {
+
+    Vector2 center = FindFigureCenter(points);
+
+    for (size_t i = 0; i < points.size() - 1; i++)
+    {
+        DrawTriangle(center, points[i], points[i + 1], color);
     }
 }
 
-   
 
-    std::vector<Vector2> GenerateRectangleVertices(float width, float height) {
-        std::vector<Vector2> vertices{3}; // 4 vertices for a rectangle
 
-    vertices[0] = { 0, 0 }; // Top-left
-    vertices[1] = { 50, 0 };  // Top-right
-    vertices[2] = { 50, 50 };   // Bottom-right
-    
 
-    return vertices;
+
+Vector3 rotatePoint(const Vector3& point, const QuaternionR& q) {
+    // Represent the point as a pure quaternion
+    QuaternionR p{ 0, point.x, point.y, point.z };
+
+    // Compute the rotated point: p' = q * p * q^-1
+    QuaternionR rotated = q * p * q.conjugate();
+
+    // Extract the rotated point
+    return Vector3{ rotated.x, rotated.y, rotated.z };
 }
 
-
+float DegreetoRadians(float degree) {
+    return (degree * (M_PI / 180.f));
+}
 
 int main() {
 
@@ -76,12 +97,17 @@ int main() {
     const int SidescreenHeight = 300;
 
 
+    Vector3 axis{ 1, 1, 1 }; // Rotate around the Y-axis
+    float angle = DegreetoRadians(1); // 90 degrees in radians
+
+    QuaternionR q{ axis, angle };
+
     InitWindow(screenWidth, screenHeight, "VODKA");
     
-    Mesh mesh = GenMeshCube(1.f, 1.f, 1.f);
+    Mesh mesh = GenMeshCube(2.f, 2.f, 2.f);
     //Mesh mesh = GenMeshSphere(0.5,10,10);
     PhysicalObj o1(Vector3{1,20,1}, mesh, 0.1);
-    o1.BasicColision();
+    //o1.BasicColision();
 
 
     // Define the camera to look into our 3d world
@@ -120,6 +146,8 @@ int main() {
 
     SetTargetFPS(200);
 
+    
+
     while (!WindowShouldClose()) {
         UpdateCamera(&camera, CAMERA_FREE);
 
@@ -128,8 +156,21 @@ int main() {
         start = currentTime;
 
         o1.update(m_DeltadTime);
+       
+        for (int i = 0; i < o1.ObjMesh.vertexCount; i+=3)
+        {    
+            Vector3 p{
+            o1.ObjMesh.vertices[i],
+            o1.ObjMesh.vertices[i + 1],
+            o1.ObjMesh.vertices[i + 2]
+            };
 
-        
+            p = rotatePoint(p, q);
+
+                o1.ObjMesh.vertices[  i  ] = p.x;
+                o1.ObjMesh.vertices[i + 1] = p.y;
+                o1.ObjMesh.vertices[i + 2] = p.z;
+        }
 
         BeginDrawing();
 
@@ -151,16 +192,9 @@ int main() {
 
         DrawFPS(10, 20);
 
+        DrawRectangle(screenWidth-SidescreenWidth,0,SidescreenWidth,SidescreenHeight, WHITE);
 
-        //BeginMode2D(CameraSideScreen);
-        
-        //DrawTexturePoly(GenerateRectangleVertices(150,150), BLACK);
-
-        DrawPolygon(GenerateRectangleVertices(150, 150), BLACK);
-
-        //DrawRectangle(screenWidth-SidescreenWidth, 0, SidescreenWidth, SidescreenHeight, WHITE);
-
-        //EndMode2D();
+        DrawPoly(o1.flattenX(), RED);
 
         EndDrawing();
     }

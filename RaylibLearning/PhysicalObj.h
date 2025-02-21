@@ -11,27 +11,15 @@ constexpr static float G_EARTH = 9.80665f;
 
 class PhysicalObj
 {
-private:
+public:
+
 	Vector3 Position;
 	Mesh ObjMesh;
 	Model Model;
 	float ObjMass;
 	Vector3 Velocity;
 
-     std::vector<Vector2> flattenX()
-	{
-		std::vector<Vector2> FlattedToX = std::vector<Vector2>(ObjMesh.vertexCount);
 
-		for (size_t i = 0; i < ObjMesh.vertexCount; i+=3)
-		{ 
-			FlattedToX[i] = Vector2{ ObjMesh.vertices[i], ObjMesh.vertices[i + 1]};
-		}
-
-		return FlattedToX;
-
-	}
-
-public:
 	PhysicalObj(Vector3 pos, Mesh objmesh, float mass) {
 		Position = pos;
 		ObjMesh = objmesh;
@@ -41,6 +29,26 @@ public:
 	}
 
 	~PhysicalObj(){}
+
+	void rotateQ(Quaternion q) {
+		for (size_t i = 0; i < ObjMesh.vertexCount; i++)
+		{
+
+		}
+	}
+
+	std::vector<Vector2> flattenX()
+	{
+		std::vector<Vector2> FlattedToX = std::vector<Vector2>( ObjMesh.vertexCount );
+
+		for (size_t i = 0; i < ObjMesh.vertexCount; i += 3)
+		{
+			FlattedToX[i] = Vector2{ ObjMesh.vertices[i]  , ObjMesh.vertices[i + 1] };
+		}
+
+		return FlattedToX;
+
+	}
 
 	void Gravity()
 	{

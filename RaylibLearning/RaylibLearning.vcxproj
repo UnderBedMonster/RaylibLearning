@@ -135,10 +135,12 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PhysicalObj.cpp" />
+    <ClCompile Include="QuaternionR.cpp" />
     <ClCompile Include="Tree.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="PhysicalObj.h" />
+    <ClInclude Include="QuaternionR.h" />
     <ClInclude Include="Tree.h" />
   </ItemGroup>
   <ItemGroup>

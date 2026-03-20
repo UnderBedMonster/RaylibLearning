@@ -1,15 +1,13 @@
 #include <raylib.h>
 #include <rlgl.h>
 #include <raymath.h>
-#include "PhysicalObj.h"
-#include "QuaternionR.h"
+#include "headers/PhysicalObj.h"
+#include "headers/QuaternionR.h"
+#include "headers/NoiseMap.h"
 #include <chrono>
 #include <thread>
 #include <vector>
 #include <cmath>
-
-
-
 
 #if defined(PLATFORM_DESKTOP)
 #define GLSL_VERSION            330
@@ -17,100 +15,74 @@
 #define GLSL_VERSION            100
 #endif
 
-#define MAX_POINTS  11
-
 #define M_PI 3.14159265358979323846
 
-
-
-
+//drawing func of the XYZ axes
 void DrawXYZLines() {
 
     DrawCubeV(Vector3{ 5.f, 0, 0 }, Vector3{ 10,0.1,0.1 }, Color(RED));
-    DrawCubeV(Vector3{ 0, 5.f, 0 }, Vector3{ 0.1,10,0.1 }, Color(GREEN));
-    DrawCubeV(Vector3{ 0, 0, 5.f }, Vector3{ 0.1,0.1,10 }, Color(BLUE));
+    DrawCubeV(Vector3{ 0, 5.f, 0 }, Vector3{ 0.1,10,0.1 }, Color(GREEN));//up
+    DrawCubeV(Vector3{ 0, 0, 5.f }, Vector3{ 0.1,0.1,10 }, Color(BLUE));//left
 }
 
-void DrawTexturePoly(std::vector<Vector2> vertices, Color color) {
-    if (vertices.size() < 3) return; // Need at least 3 points to draw a polygon
+Vector3 CatchMovement() {
 
-    rlBegin(RL_QUADS); // Use triangles for filled polygon
+    float velocity = 1.;
 
-    rlColor4ub(color.r, color.g, color.b, color.a);
-
-    // Fan triangulation (works well for convex polygons)
-    for (int i = 0; i < vertices.size(); i+=3) {
-        rlVertex2f(vertices[i].x, vertices[i].y);       // Center vertex (first point)
-        rlVertex2f(vertices[i+1].x, vertices[i+1].y);         // Current vertex
-        rlVertex2f(vertices[i + 2].x, vertices[i + 2].y);   // Next vertex
-    }
-
-    rlEnd();
-}
-
-Vector2 FindFigureCenter(std::vector<Vector2> &points)
-{
-    Vector2 output{ 0,0 };
-
-    for (size_t i = 0; i < points.size(); i++)
+    if (GetKeyPressed() == KEY_BACKSPACE)
     {
-        output += points[i];
+        return Vector3{ 0,velocity,0 };
     }
-    return (output / points.size());
-}
-
-void DrawPoly(std::vector<Vector2> points, Color color) {
-
-    Vector2 center = FindFigureCenter(points);
-
-    for (size_t i = 0; i < points.size() - 1; i++)
+    if (GetKeyPressed() == KEY_LEFT_CONTROL)
     {
-        DrawTriangle(center, points[i], points[i + 1], color);
+        return Vector3{ 0,-velocity,0 };
+    }
+    if (GetKeyPressed() == KEY_A)
+    {
+        return Vector3{ 0,0,velocity };
+    }
+    if (GetKeyPressed() == KEY_S)
+    {
+        return Vector3{ velocity,0,0 };
+    }
+    if (GetKeyPressed() == KEY_D)
+    {
+        return Vector3{ 0,0,-velocity };
+    }
+    if (GetKeyPressed() == KEY_W)
+    {
+        return Vector3{ -velocity,0,0 };
     }
 }
 
-
-
-
-
-Vector3 rotatePoint(const Vector3& point, const QuaternionR& q) {
-    // Represent the point as a pure quaternion
-    QuaternionR p{ 0, point.x, point.y, point.z };
-
-    // Compute the rotated point: p' = q * p * q^-1
-    QuaternionR rotated = q * p * q.conjugate();
-
-    // Extract the rotated point
-    return Vector3{ rotated.x, rotated.y, rotated.z };
-}
-
+//degree to radians translation func 
 float DegreetoRadians(float degree) {
     return (degree * (M_PI / 180.f));
 }
+
+struct Projectile {
+    Vector3 position;
+    Vector3 velocity;
+    bool    active = true;
+};
+
+std::vector<Projectile> projectiles;
 
 int main() {
 
     const int screenWidth = 1280;
     const int screenHeight = 720;
 
-    const int SidescreenWidth = 400;
-    const int SidescreenHeight = 300;
-
-
-    Vector3 axis{ 1, 1, 1 }; // Rotate around the Y-axis
-    float angle = DegreetoRadians(1); // 90 degrees in radians
-
-    QuaternionR q{ axis, angle };
-
     InitWindow(screenWidth, screenHeight, "VODKA");
-    
-    Mesh mesh = GenMeshCube(2.f, 2.f, 2.f);
-    //Mesh mesh = GenMeshSphere(0.5,10,10);
-    PhysicalObj o1(Vector3{1,20,1}, mesh, 0.1);
-    //o1.BasicColision();
+   
+    //Objects
+    Mesh CubeMesh = GenMeshCube(2.f, 2.f, 2.f);
+    Mesh lightBulbMesh = GenMeshSphere(0.5,10,10);
+    PhysicalObj o1(Vector3{ 1,20,1 }, CubeMesh, 0.1);
+    NoiseMap NM(150,150,0.02,25);
 
 
-    // Define the camera to look into our 3d world
+    // Camera
     Camera camera = { 0 };
     camera.position = Vector3{ 50.0f, 5.0f, 0.0f };
     camera.target = Vector3{ 0.0f, 0.0f, 0.0f };
@@ -118,35 +90,24 @@ int main() {
     camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
-    //2d sidecreen for side perspective objects visualization
-    Camera2D CameraSideScreen = { 0 };
-    CameraSideScreen.offset = Vector2{ SidescreenWidth / 2.0f, SidescreenHeight / 2.0f };
-    ClearBackground(WHITE);
-    RenderTexture SideScreen = LoadRenderTexture(150, 150);
+    Vector3 lightPos = {60,60,60};
 
-
-    // Light properties (simulated)
-    Vector3 lightPosition = { 0.0f, 0.0f, 0.0f }; // Position of the "light"
-    Color lightColor = WHITE;
-
-    // Load a texture and assign to cube model
+    //textures
     Texture2D texture = LoadTexture("textures/dora2.jpg");
+
+    //shaders
+    Shader shader = LoadShader(0, "shaders/lighting.frag");
+    Shader TerrainShader = LoadShader("shaders/terrain.vert", "shaders/terrain.frag");
+
+    o1.setTiling(1.f, 1.f);
+    o1.SetShader(shader);                  
     o1.SetMaterialMapDiffuse(texture);
-
-    float tiling[2] = { 1.0f, 1.0f };
-    Shader shader = LoadShader(0, TextFormat("shaders/lighting.frag", GLSL_VERSION));
-    SetShaderValue(shader, GetShaderLocation(shader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
-    o1.SetShader(shader);
-
-    DisableCursor();
+    NM.SetShader(TerrainShader);
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    o1.AddVelocityObj(Vector3{0,0,0});
-
-    SetTargetFPS(200);
-
-    
+    DisableCursor();
+    SetTargetFPS(350);
 
     while (!WindowShouldClose()) {
         UpdateCamera(&camera, CAMERA_FREE);
@@ -154,48 +115,60 @@ int main() {
         auto currentTime = std::chrono::high_resolution_clock::now();
         auto m_DeltadTime = std::chrono::duration<float>(currentTime - start).count();
         start = currentTime;
-
+        printf("CammeraTerget: %.2f %.2f %.2f\r", camera.target.x, camera.target.y, camera.target.z);
+        
         o1.update(m_DeltadTime);
-       
-        for (int i = 0; i < o1.ObjMesh.vertexCount; i+=3)
-        {    
-            Vector3 p{
-            o1.ObjMesh.vertices[i],
-            o1.ObjMesh.vertices[i + 1],
-            o1.ObjMesh.vertices[i + 2]
-            };
+        float speed = m_DeltadTime * 2;
+        if (IsKeyDown(KEY_LEFT))  o1.rotation = QuaternionR(speed, Vector3{ 0,1,0 }) * o1.rotation;
+        if (IsKeyDown(KEY_RIGHT)) o1.rotation = QuaternionR(-speed, Vector3{ 0,1,0 }) * o1.rotation;
+        if (IsKeyDown(KEY_UP))    o1.rotation = QuaternionR(speed, Vector3{ 1,0,0 }) * o1.rotation;
+        if (IsKeyDown(KEY_DOWN))  o1.rotation = QuaternionR(-speed, Vector3{ 1,0,0 }) * o1.rotation;
+        if (IsKeyDown(KEY_N))     o1.rotation = QuaternionR(speed, Vector3{ 0,0,1 }) * o1.rotation;
+        if (IsKeyDown(KEY_M))     o1.rotation = QuaternionR(-speed, Vector3{ 0,0,1 }) * o1.rotation;
 
-            p = rotatePoint(p, q);
+        if (IsKeyPressed(KEY_K)) {
+            Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
+            float   speed = 50.0f;
 
-                o1.ObjMesh.vertices[  i  ] = p.x;
-                o1.ObjMesh.vertices[i + 1] = p.y;
-                o1.ObjMesh.vertices[i + 2] = p.z;
+            Projectile p;
+            p.position = camera.position;           // start at camera
+            p.velocity = Vector3Scale(forward, speed); // shoot forward
+            projectiles.push_back(p);
         }
 
+        for (auto& p : projectiles) {
+            p.position = Vector3Add(p.position, Vector3Scale(p.velocity, m_DeltadTime));
+
+            // deactivate if too far
+            if (Vector3Length(p.position) > 500.0f) p.active = false;
+        }
+
+        // remove inactive projectiles
+        projectiles.erase(
+            std::remove_if(projectiles.begin(), projectiles.end(),
+                [](const Projectile& p) { return !p.active; }),
+            projectiles.end()
+        );
+
         BeginDrawing();
-
         ClearBackground(DARKGRAY);
+          BeginMode3D(camera);
 
-        BeginMode3D(camera);
+           NM.updateShader(lightPos);
 
-        DrawXYZLines();
+           DrawXYZLines();
+           DrawGrid(10, 1.0f);
 
-        DrawGrid(10, 1.0f);
+           for (auto& p : projectiles) {
+               DrawSphere(p.position, 0.3f, YELLOW);
+           }
 
-        BeginShaderMode(shader);
+           o1.draw();  
+           NM.draw();
+           DrawSphere(lightPos,0.5,YELLOW);
 
-        o1.draw();
-
-        EndShaderMode();
-
-        EndMode3D();
-
+          EndMode3D();
         DrawFPS(10, 20);
-
-        DrawRectangle(screenWidth-SidescreenWidth,0,SidescreenWidth,SidescreenHeight, WHITE);
-
-        DrawPoly(o1.flattenX(), RED);
-
         EndDrawing();
     }
 
@@ -204,3 +177,4 @@ int main() {
 
     return 0;
 }
+

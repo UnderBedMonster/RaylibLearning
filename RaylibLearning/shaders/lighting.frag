@@ -1,21 +1,16 @@
-#version 100
+#version 330
 
-precision mediump float;
+in vec2 fragTexCoord;
+in vec4 fragColor;
 
-// Input vertex attributes (from vertex shader)
-varying vec2 fragTexCoord;
-varying vec4 fragColor;
-
-// Input uniform values
 uniform sampler2D texture0;
 uniform vec4 colDiffuse;
-
-// NOTE: Add here your custom variables
 uniform vec2 tiling;
+
+out vec4 finalColor;
 
 void main()
 {
-    vec2 texCoord = fragTexCoord*tiling;
-
-    gl_FragColor = texture2D(texture0, texCoord)*colDiffuse;
+    vec2 texCoord = fragTexCoord * tiling;
+    finalColor = texture(texture0, texCoord) * fragColor * colDiffuse;
 }

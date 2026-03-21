@@ -5,19 +5,13 @@
 #include <cfloat>
 #include <vector>
 #include <raymath.h>   
+#include "Terrain.h"
 
 
-
-class NoiseMap {
+class NoiseMap : public Terrain{
 
 public:
 
-	Mesh mesh = { 0 };
-	Model model;
-
-	Vector3 Position;
-	float terrainWidth;
-	float terrainDepth;
 	float terrainAmplitude;
 	float terrainScale;
 
@@ -26,21 +20,12 @@ public:
 
 	float lightIntensity = 5.0f;
 
-	int lightPosLoc;
-	int matModelLoc;
-	int lightRadiusLoc;
-	int lightIntensityLoc;
-	Shader shader;
-	std::vector<std::vector<Vector3>> MapVertices;
+	NoiseMap(Vector3 p, int w, int d, float scale, float amplitude)
+		:Terrain(p, w, d){
 
-	NoiseMap(Vector3 p, int w, int d, float scale, float amplitude) {
-
-		Position = p;
-		terrainWidth = w;
-		terrainDepth = d;
 		terrainScale = scale;
 		terrainAmplitude = amplitude;
-	    mesh = { 0 };
+	    
 		mesh.vertexCount = terrainWidth * terrainDepth;
 		mesh.triangleCount = (terrainWidth - 1) * (terrainDepth - 1) * 2;
 
@@ -57,6 +42,30 @@ public:
 
 		model = LoadModelFromMesh(mesh);
 	}
+	/*NoiseMap(Vector3 p, int w, int d, float scale, float amplitude) {
+
+		Position = p;
+		terrainWidth = w;
+		terrainDepth = d;
+		terrainScale = scale;
+		terrainAmplitude = amplitude;
+		mesh = { 0 };
+		mesh.vertexCount = terrainWidth * terrainDepth;
+		mesh.triangleCount = (terrainWidth - 1) * (terrainDepth - 1) * 2;
+
+		mesh.vertices = (float*)MemAlloc(mesh.vertexCount * 3 * sizeof(float));
+		mesh.texcoords = (float*)MemAlloc(mesh.vertexCount * 2 * sizeof(float));
+		mesh.indices = (unsigned short*)MemAlloc(mesh.triangleCount * 3 * sizeof(unsigned short));
+
+		MapVertices.resize(terrainDepth, std::vector<Vector3>(terrainWidth));
+
+		FillVertices();
+		FillIndices();
+
+		UploadMesh(&mesh, 0);
+
+		model = LoadModelFromMesh(mesh);
+	}*/
 	void FillVertices() {
 		for (int z = 0; z < terrainDepth; z++) {
 			for (int x = 0; x < terrainWidth; x++) {
@@ -136,18 +145,18 @@ public:
 		};
 	}
 
-	void SetShader(Shader& s) {
+	void SetShader(Shader& s) override {
 		model.materials[0].shader = s;
 		shader = s;
 		lightPosLoc = GetShaderLocation(shader, "lightPos");
 		matModelLoc = GetShaderLocation(shader, "matModel");
 		lightRadiusLoc = GetShaderLocation(shader, "lightRadius");
 		lightIntensityLoc = GetShaderLocation(shader, "lightIntensity");
-		SetShaderValue(shader, GetShaderLocation(shader, "minHeight"), &minHeight, SHADER_UNIFORM_FLOAT);
-		SetShaderValue(shader, GetShaderLocation(shader, "maxHeight"), &maxHeight, SHADER_UNIFORM_FLOAT);
 		int terrainOffsetLoc = GetShaderLocation(shader, "terrainOffset");
 		SetShaderValue(shader, terrainOffsetLoc, &Position, SHADER_UNIFORM_VEC3);
 
+		SetShaderValue(shader, GetShaderLocation(shader, "minHeight"), &minHeight, SHADER_UNIFORM_FLOAT);
+		SetShaderValue(shader, GetShaderLocation(shader, "maxHeight"), &maxHeight, SHADER_UNIFORM_FLOAT);
 		SetShaderValue(shader, lightIntensityLoc, &lightIntensity, SHADER_UNIFORM_FLOAT);
 	}
 

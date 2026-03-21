@@ -36,10 +36,9 @@ public:
 			return false;
 		}
 	}
-	bool resolveSphereTerrainCollision(NoiseMap &terrain) {
+	bool resolveSphereTerrainCollision(NoiseMap &terrain, Vector3& velocity) {
 
 		Vector3 closestVertex = terrain.getClosestVertex(center);
-		
 		Vector3 dir = Vector3Normalize(Vector3Subtract(closestVertex, center));
 
 		Ray ray;
@@ -49,6 +48,31 @@ public:
 		RayCollision col = GetRayCollisionMesh(ray, terrain.mesh, terrain.model.transform);
 
 		if (col.hit && col.distance <= radius) {
+
+			
+			float sinkDepth = radius - col.distance;
+			center = Vector3Add(center, Vector3Scale(col.normal, sinkDepth));
+			//remove velocity going INTO surface
+			float velDot = Vector3DotProduct(velocity, col.normal);
+			if (velDot < 0) {
+				velocity = Vector3Subtract(velocity, Vector3Scale(col.normal, velDot));
+
+
+				float speed = Vector3Length(velocity);
+				if (speed > 0.1f) {
+					float frictionForce = 0.0001f;  // tune this — lower = icier
+					Vector3 frictionDir = Vector3Negate(Vector3Normalize(velocity));
+					velocity = Vector3Add(velocity,
+						Vector3Scale(frictionDir, frictionForce * speed));
+				}
+				else {
+					velocity = { 0, 0, 0 };  // stop fully if nearly still
+				}
+			}
+
+			
+
+
 			return true;
 		}
 		return false;

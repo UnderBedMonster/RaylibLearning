@@ -140,6 +140,7 @@
     <ClCompile Include="headers\Tree.cpp" />
     <ClCompile Include="headers\SphereColBox.cpp" />
     <ClCompile Include="headers\Marble.cpp" />
+    <ClCompile Include="headers\Terrain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="headers\PhysicalObj.h" />
@@ -148,6 +149,7 @@
     <ClInclude Include="headers\NoiseMap.h" />
     <ClInclude Include="headers\SphereColBox.h" />
     <ClInclude Include="headers\Marble.h" />
+    <ClInclude Include="headers\Terrain.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\lighting.frag">

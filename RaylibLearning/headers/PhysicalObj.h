@@ -23,7 +23,7 @@ public:
 	QuaternionR rotation;
 	Color color = WHITE;
 
-	bool falling = true;
+	bool inCollisionWithterrain = false;
 	
 	float tiling[2] = { 1.0f, 1.0f };
 	int tilingLocation;
@@ -81,7 +81,7 @@ public:
 
 	void Gravity(float deltaTime)
 	{
-		if (falling)
+		if (!inCollisionWithterrain)
 		{
 			AddVelocityObj(Vector3{ 0.f, -((G_EARTH) * deltaTime), 0.f });
 		}

@@ -21,23 +21,30 @@ public:
 		color = c;
 		isBouncy = b;
 	}
+
 	~Marble() {
 		delete colBox;  
 	}
+
 	void update(float deltaTime) override {
-		PhysicalObj::update(deltaTime);
+		inCollisionWithterrain = false;
+
 		colBox->center = Position;
-		if (colBox->resolveSphereTerrainCollision(*terrain))
-		{
+
+		if (terrain != nullptr && colBox->resolveSphereTerrainCollision(*terrain, Velocity)) {
 			color = RED;
-			falling = false;
+			inCollisionWithterrain = false;
+			Velocity.y = 0.0f;          
+			Position = colBox->center; 
 		}
+
+		PhysicalObj::update(deltaTime);
 	}
 
 	void debugPrint() {
 		printf("pos:     %.2f %.2f %.2f\n", Position.x, Position.y, Position.z);
 		printf("vel:     %.2f %.2f %.2f\n", Velocity.x, Velocity.y, Velocity.z);
-		printf("falling: %s\n", falling ? "true" : "false");
+		printf("falling: %s\n", inCollisionWithterrain ? "true" : "false");
 		printf("\033[3A");  // go back up 3 lines — must match number of printfs
 	}
 };

@@ -6,6 +6,7 @@ in vec3 vertexNormal;
 
 uniform mat4 mvp;
 uniform mat4 matModel;
+uniform vec3 terrainOffset;
 
 out vec2 fragTexCoord;
 out vec3 fragNormal;
@@ -19,7 +20,7 @@ void main()
     
     fragTexCoord = vertexTexCoord;
     fragNormal   = vertexNormal;
-    fragHeight   = vertexPosition.y;   
+    fragHeight   = vertexPosition.y - terrainOffset.y;   
     vec4 worldPos = matModel * vec4(vertexPosition, 1.0);
     fragPos       = worldPos.xyz;
     gl_Position = mvp * vec4(vertexPosition,1.0);

@@ -1,7 +1,7 @@
 #include <raylib.h>
 #include <rlgl.h>
 #include <raymath.h>
-#include "headers/PhysicalObj.h"
+#include "headers/Marble.h"
 #include "headers/QuaternionR.h"
 #include "headers/NoiseMap.h"
 #include <chrono>
@@ -78,16 +78,23 @@ int main() {
     //Objects
     Mesh CubeMesh = GenMeshCube(2.f, 2.f, 2.f);
     Mesh lightBulbMesh = GenMeshSphere(0.5,10,10);
-    PhysicalObj o1(Vector3{ 1,20,1 }, CubeMesh, 0.1);
-    NoiseMap NM(150,150,0.02,25);
+
+    Vector3 MapPosition{0,0,0 };
+    NoiseMap NM(MapPosition, 150,150,0.02,25);
+
+    Vector3 position{ 10,20,10 };
+    Mesh marbleMesh = GenMeshSphere(1,10,10);
+    Marble marble(position, marbleMesh, 1, 5, WHITE, false);
+    marble.setTerrain(&NM);
 
 
     // Camera
     Camera camera = { 0 };
-    camera.position = Vector3{ 50.0f, 5.0f, 0.0f };
+    camera.position = Vector3{ -50.0f, 5.0f, 0.0f };
     camera.target = Vector3{ 0.0f, 0.0f, 0.0f };
     camera.up = Vector3{ 0.0f, 1.0f, 0.0f };
     camera.fovy = 45.0f;
+    
     camera.projection = CAMERA_PERSPECTIVE;
 
     Vector3 lightPos = {60,60,60};
@@ -99,15 +106,15 @@ int main() {
     Shader shader = LoadShader(0, "shaders/lighting.frag");
     Shader TerrainShader = LoadShader("shaders/terrain.vert", "shaders/terrain.frag");
 
-    o1.setTiling(1.f, 1.f);
-    o1.SetShader(shader);                  
-    o1.SetMaterialMapDiffuse(texture);
+    marble.setTiling(1.f, 1.f);
+    marble.SetShader(shader);                  
+    //o1.SetMaterialMapDiffuse(texture);
     NM.SetShader(TerrainShader);
 
     auto start = std::chrono::high_resolution_clock::now();
 
     DisableCursor();
-    SetTargetFPS(350);
+    SetTargetFPS(120);
 
     while (!WindowShouldClose()) {
         UpdateCamera(&camera, CAMERA_FREE);
@@ -115,16 +122,10 @@ int main() {
         auto currentTime = std::chrono::high_resolution_clock::now();
         auto m_DeltadTime = std::chrono::duration<float>(currentTime - start).count();
         start = currentTime;
-        printf("CammeraTerget: %.2f %.2f %.2f\r", camera.target.x, camera.target.y, camera.target.z);
+       
         
-        o1.update(m_DeltadTime);
+        marble.update(m_DeltadTime);
         float speed = m_DeltadTime * 2;
-        if (IsKeyDown(KEY_LEFT))  o1.rotation = QuaternionR(speed, Vector3{ 0,1,0 }) * o1.rotation;
-        if (IsKeyDown(KEY_RIGHT)) o1.rotation = QuaternionR(-speed, Vector3{ 0,1,0 }) * o1.rotation;
-        if (IsKeyDown(KEY_UP))    o1.rotation = QuaternionR(speed, Vector3{ 1,0,0 }) * o1.rotation;
-        if (IsKeyDown(KEY_DOWN))  o1.rotation = QuaternionR(-speed, Vector3{ 1,0,0 }) * o1.rotation;
-        if (IsKeyDown(KEY_N))     o1.rotation = QuaternionR(speed, Vector3{ 0,0,1 }) * o1.rotation;
-        if (IsKeyDown(KEY_M))     o1.rotation = QuaternionR(-speed, Vector3{ 0,0,1 }) * o1.rotation;
 
         if (IsKeyPressed(KEY_K)) {
             Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
@@ -150,6 +151,8 @@ int main() {
             projectiles.end()
         );
 
+        marble.debugPrint();
+
         BeginDrawing();
         ClearBackground(DARKGRAY);
           BeginMode3D(camera);
@@ -163,8 +166,9 @@ int main() {
                DrawSphere(p.position, 0.3f, YELLOW);
            }
 
-           o1.draw();  
+           marble.draw();  
            NM.draw();
+           NM.drawNormals(2.0f,10);
            DrawSphere(lightPos,0.5,YELLOW);
 
           EndMode3D();

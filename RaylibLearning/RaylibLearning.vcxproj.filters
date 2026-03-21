@@ -33,7 +33,10 @@
     <ClCompile Include="headers\NoiseMap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ObjectCluster.cpp">
+    <ClCompile Include="headers\SphereColBox.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="headers\Marble.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -50,7 +53,10 @@
     <ClInclude Include="headers\NoiseMap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ObjectCluster.h">
+    <ClInclude Include="headers\SphereColBox.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\Marble.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

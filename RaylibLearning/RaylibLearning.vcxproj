@@ -138,14 +138,16 @@
     <ClCompile Include="headers\PhysicalObj.cpp" />
     <ClCompile Include="headers\QuaternionR.cpp" />
     <ClCompile Include="headers\Tree.cpp" />
-    <ClCompile Include="ObjectCluster.cpp" />
+    <ClCompile Include="headers\SphereColBox.cpp" />
+    <ClCompile Include="headers\Marble.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="headers\PhysicalObj.h" />
     <ClInclude Include="headers\QuaternionR.h" />
     <ClInclude Include="headers\Tree.h" />
     <ClInclude Include="headers\NoiseMap.h" />
-    <ClInclude Include="ObjectCluster.h" />
+    <ClInclude Include="headers\SphereColBox.h" />
+    <ClInclude Include="headers\Marble.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\lighting.frag">

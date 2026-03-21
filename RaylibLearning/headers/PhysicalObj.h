@@ -21,6 +21,9 @@ public:
 	float ObjMass;
 	Vector3 Velocity;
 	QuaternionR rotation;
+	Color color = WHITE;
+
+	bool falling = true;
 	
 	float tiling[2] = { 1.0f, 1.0f };
 	int tilingLocation;
@@ -78,28 +81,10 @@ public:
 
 	void Gravity(float deltaTime)
 	{
-		if (Position.y > 0.f)
+		if (falling)
 		{
-		AddVelocityObj(Vector3{ 0.f, -((G_EARTH) * deltaTime), 0.f });
+			AddVelocityObj(Vector3{ 0.f, -((G_EARTH) * deltaTime), 0.f });
 		}
-		else
-		{
-			Position.y = 0.f;
-			Velocity.y = 0.f;
-		}
-	}
-
-	bool BasicColision(){
-		for (size_t i = 0; i < ObjMesh.vertexCount; i++)
-		{
-		    std::cout << "Vert " << i << " ";
-			for (size_t j = 0; j < 3; j++)
-			{
-			    std::cout << ObjMesh.vertices[j] << " ; ";
-			}
-	      	std::cout << std::endl;
-		}
-		return true;
 	}
 
 	void ChangeObjPos(Vector3 NewPos)
@@ -117,11 +102,11 @@ public:
 		Velocity += (direction*jouls);
 	}
 
-	void update(float deltaTime) {
+	void virtual update(float deltaTime) {
 		//std::cout << "x: " << Velocity.x << " y: " << Velocity.y << " z: " << Velocity.z << std::endl;
+		Gravity(deltaTime);
 		Position = Position + (Velocity * deltaTime); // Update position based on velocity and deltaTime
 		rotation.normalize();
-		Gravity(deltaTime);
 	}
 
 	void SetMaterialMapDiffuse(Texture2D texture) {
@@ -138,7 +123,7 @@ public:
 	void draw()
 	{	
 		Model.transform = rotation.toMatrix();
-		DrawModel(Model, Position, 1.0f, WHITE);
+		DrawModel(Model, Position, 1.0f, color);
 	};
 };
 

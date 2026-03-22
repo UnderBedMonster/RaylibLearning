@@ -4,11 +4,11 @@
 #include "stb_perlin.h"
 #include <cfloat>
 #include <vector>
-#include <raymath.h>   
+#include <raymath.h>
 #include "Terrain.h"
 
 
-class NoiseMap : public Terrain{
+class NoiseMap : public Terrain {
 
 public:
 
@@ -16,16 +16,16 @@ public:
 	float terrainScale;
 
 	float minHeight = FLT_MAX;
-	float maxHeight	= FLT_MIN;
+	float maxHeight = FLT_MIN;
 
 	float lightIntensity = 5.0f;
 
 	NoiseMap(Vector3 p, int w, int d, float scale, float amplitude)
-		:Terrain(p, w, d){
+		:Terrain(p, w, d) {
 
 		terrainScale = scale;
 		terrainAmplitude = amplitude;
-	    
+
 		mesh.vertexCount = terrainWidth * terrainDepth;
 		mesh.triangleCount = (terrainWidth - 1) * (terrainDepth - 1) * 2;
 
@@ -33,12 +33,12 @@ public:
 		mesh.texcoords = (float*)MemAlloc(mesh.vertexCount * 2 * sizeof(float));
 		mesh.indices = (unsigned short*)MemAlloc(mesh.triangleCount * 3 * sizeof(unsigned short));
 
-		MapVertices.resize(terrainDepth, std::vector<Vector3>(terrainWidth)); 
+		MapVertices.resize(terrainDepth, std::vector<Vector3>(terrainWidth));
 
 		FillVertices();
 		FillIndices();
 
-		UploadMesh(&mesh,0);
+		UploadMesh(&mesh, 0);
 
 		model = LoadModelFromMesh(mesh);
 	}
@@ -78,16 +78,16 @@ public:
 				if (y < minHeight) {
 					minHeight = y;
 				}
-				if(y > maxHeight){
+				if (y > maxHeight) {
 					maxHeight = y;
 				}
-				
+
 
 				mesh.vertices[i * 3 + 0] = (float)x + Position.x;
 				mesh.vertices[i * 3 + 1] = y + Position.y;
 				mesh.vertices[i * 3 + 2] = (float)z + Position.z;
 
-				MapVertices[z][x] = Vector3{ (float)x + Position.x ,y + Position.y, (float)z + Position.z};
+				MapVertices[z][x] = Vector3{ (float)x + Position.x ,y + Position.y, (float)z + Position.z };
 
 				mesh.texcoords[i * 2 + 0] = (float)x / terrainWidth;
 				mesh.texcoords[i * 2 + 1] = (float)z / terrainDepth;
@@ -128,22 +128,7 @@ public:
 
 	~NoiseMap() {}
 
-	Vector3 getClosestVertex(Vector3 spherePos) {
-		// convert to grid coordinates
-		int x = (int)round(spherePos.x - Position.x);
-		int z = (int)round(spherePos.z - Position.z);
-
-		// clamp to terrain bounds
-		x = fmax(0, fmin(x, terrainWidth - 1));
-		z = fmax(0, fmin(z, terrainDepth - 1));
-
-		int i = z * terrainWidth + x;
-		return {
-			mesh.vertices[i * 3 + 0] + Position.x,
-			mesh.vertices[i * 3 + 1] + Position.y,
-			mesh.vertices[i * 3 + 2] + Position.z
-		};
-	}
+	
 
 	void SetShader(Shader& s) override {
 		model.materials[0].shader = s;
@@ -214,6 +199,3 @@ public:
 
 private:
 };
-
-
-

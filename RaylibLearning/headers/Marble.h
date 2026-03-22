@@ -10,9 +10,9 @@ public:
 	float radius;
 	bool isBouncy;
 
-	NoiseMap* terrain = nullptr;  // store reference to terrain
+	Terrain* terrain = nullptr;  // store reference to terrain
 
-	void setTerrain(NoiseMap* t) { terrain = t; }
+	void setTerrain(Terrain* t) { terrain = t; }
 
 	Marble(Vector3 pos, Mesh objmesh, float mass, float r, Color c, bool b)
 		:PhysicalObj(pos, objmesh, mass) {
@@ -33,9 +33,14 @@ public:
 
 		if (terrain != nullptr && colBox->resolveSphereTerrainCollision(*terrain, Velocity)) {
 			color = RED;
-			inCollisionWithterrain = false;
-			Velocity.y = 0.0f;          
+			inCollisionWithterrain = true;
 			Position = colBox->center; 
+
+			if (Velocity.y < 0) {
+				Velocity.y *= -0.4f;  // bounce — 0.4 = 40% energy kept
+				// 0.0 = no bounce, dead stop
+				// 1.0 = perfect bounce, no energy loss
+			}
 		}
 
 		PhysicalObj::update(deltaTime);

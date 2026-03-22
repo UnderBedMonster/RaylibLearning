@@ -1,4 +1,4 @@
-#include <raylib.h>
+﻿#include <raylib.h>
 #include <rlgl.h>
 #include <raymath.h>
 #include "headers/Marble.h"
@@ -69,72 +69,66 @@ struct Projectile {
 
 std::vector<Projectile> projectiles;
 
+
+
 int main() {
 
     const int screenWidth = 1280;
     const int screenHeight = 720;
 
     InitWindow(screenWidth, screenHeight, "VODKA");
-   
+
     //Objects
     Mesh CubeMesh = GenMeshCube(2.f, 2.f, 2.f);
-    Mesh lightBulbMesh = GenMeshSphere(0.5,10,10);
+    Mesh SphereMesh = GenMeshSphere(2,10,10);
+    Mesh lightBulbMesh = GenMeshSphere(0.5, 10, 10);
 
-    Vector3 MapPosition{0,0,0 };
-    NoiseMap NM(MapPosition, 150,150,0.03,40);
-
-    std::vector<Marble> marbles;
-    marbles.reserve(10);
-    Mesh marbleMesh = GenMeshSphere(2,10,10);
-
+    Vector3 MapPosition{ 0,0,0 };
+    Terrain t(MapPosition, 50, 300);
+    Marble m({20,100,20},SphereMesh,500,2,BLUE,false);
+    m.AddVelocityObj({0,-100,20});
     std::random_device rd;
     std::mt19937 gen(rd());
 
     std::uniform_real_distribution<float> randFloat(0.0f, 135.0f);
     Vector3 position{};
 
-    for (size_t i = 0; i < 10; i++)
-    {
-        position = { randFloat(gen),20,randFloat(gen) };
-        marbles.emplace_back(position, marbleMesh, 2, 2, RED, false);
-    }
-    
-    
-
-
     // Camera
     Camera camera = { 0 };
-    camera.position = Vector3{ 80.0f, 100., 90.f };
-    camera.target = Vector3{ 75.0f, -1.0f, 75.0f };
+    camera.position = Vector3{ 20.0f, 50., 0.f };
+    camera.target = Vector3{ 25.0f, 5.0f, 150.0f };
     camera.up = Vector3{ 0.0f, 1.0f, 0.0f };
     camera.fovy = 45.0f;
-    
+
     camera.projection = CAMERA_PERSPECTIVE;
 
-    Vector3 lightPos = {60,60,60};
+    Vector3 lightPos = { 60,60,60 };
 
     //textures
     Texture2D texture = LoadTexture("textures/dora2.jpg");
 
     //shaders
     Shader shader = LoadShader(0, "shaders/lighting.frag");
-    Shader TerrainShader = LoadShader("shaders/terrain.vert", "shaders/terrain.frag");
+    Shader FlexTerrainShader = LoadShader("shaders/FlexibleTerrain.vert", "shaders/FlexibleTerrain.frag");
 
-    for (size_t i = 0; i < marbles.size(); i++)
-    {
-        marbles[i].setTerrain(&NM);
-        marbles[i].setTiling(1.f, 1.f);
-        marbles[i].SetShader(shader);
-    }
-
-                    
     //o1.SetMaterialMapDiffuse(texture);
-    NM.SetShader(TerrainShader);
+    t.SetShader(FlexTerrainShader);
+    m.SetShader(shader);
+    m.setTerrain(&t);
+
+    float minImpact = 10.0f;
+    float maxStrength = 50.0f;   // higher cap so mass difference is visible
+    float deformScale = 0.00001f;
+    const float MAX_DEFORM = 15.0f;
+    float maxDeform = 0.0f;
 
     auto start = std::chrono::high_resolution_clock::now();
 
     DisableCursor();
     SetTargetFPS(120);
+
+    float lastVelY = 0.0f;
+    bool lastInCollision = false;
 
     while (!WindowShouldClose()) {
         UpdateCamera(&camera, CAMERA_FREE);
@@ -142,12 +136,20 @@ int main() {
         auto currentTime = std::chrono::high_resolution_clock::now();
         auto m_DeltadTime = std::chrono::duration<float>(currentTime - start).count();
         start = currentTime;
-       
-        for (size_t i = 0; i < marbles.size(); i++)
-        {
-            marbles[i].update(m_DeltadTime);
-            
+
+        lastInCollision = m.inCollisionWithterrain;
+        lastVelY = m.Velocity.y;
+        m.update(m_DeltadTime);
+
+        float impactVel = fabs(lastVelY);
+        if (m.inCollisionWithterrain && !lastInCollision && impactVel > minImpact) {
+            float strength = fminf(0.5f * m.ObjMass * impactVel * impactVel * deformScale, maxStrength);
+            t.applyDeformation(m.Position, m.radius * 2.0f, strength);
+            t.addImpact(m.Position, strength);  // ✅ add wave event
         }
+
+        t.propagateDeformation(m_DeltadTime);
+
         float speed = m_DeltadTime * 2;
 
         if (IsKeyPressed(KEY_K)) {
@@ -174,30 +176,27 @@ int main() {
             projectiles.end()
         );
 
+
         //marble.debugPrint();
 
         BeginDrawing();
         ClearBackground(DARKGRAY);
-          BeginMode3D(camera);
+        BeginMode3D(camera);
 
-           NM.updateShader(lightPos);
+        DrawXYZLines();
+        DrawGrid(10, 1.0f);
 
-           DrawXYZLines();
-           DrawGrid(10, 1.0f);
+        for (auto& p : projectiles) {
+            DrawSphere(p.position, 0.3f, YELLOW);
+        }
 
-           for (auto& p : projectiles) {
-               DrawSphere(p.position, 0.3f, YELLOW);
-           }
-           
-           for (size_t i = 0; i < marbles.size(); i++)
-           {
-               marbles[i].draw();
-           }
-           NM.draw();
-           //NM.drawNormals(2.0f,10);
-           DrawSphere(lightPos,0.5,YELLOW);
+        m.draw();
+        //m.debugPrint();
+        t.draw();
+        //NM.drawNormals(2.0f,10);
+        DrawSphere(lightPos, 0.5, YELLOW);
 
-          EndMode3D();
+        EndMode3D();
         DrawFPS(10, 20);
         EndDrawing();
     }
@@ -207,4 +206,3 @@ int main() {
 
     return 0;
 }
-

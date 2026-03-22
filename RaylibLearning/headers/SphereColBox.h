@@ -36,7 +36,7 @@ public:
 			return false;
 		}
 	}
-	bool resolveSphereTerrainCollision(NoiseMap &terrain, Vector3& velocity) {
+	bool resolveSphereTerrainCollision(Terrain &terrain, Vector3& velocity) {
 
 		Vector3 closestVertex = terrain.getClosestVertex(center);
 		Vector3 dir = Vector3Normalize(Vector3Subtract(closestVertex, center));
@@ -46,32 +46,29 @@ public:
 		ray.direction = dir;
 
 		RayCollision col = GetRayCollisionMesh(ray, terrain.mesh, terrain.model.transform);
-
+		
 		if (col.hit && col.distance <= radius) {
-
-			
+			// push out
 			float sinkDepth = radius - col.distance;
 			center = Vector3Add(center, Vector3Scale(col.normal, sinkDepth));
-			//remove velocity going INTO surface
+
+			// reflect velocity along normal with energy loss
 			float velDot = Vector3DotProduct(velocity, col.normal);
 			if (velDot < 0) {
-				velocity = Vector3Subtract(velocity, Vector3Scale(col.normal, velDot));
-
-
-				float speed = Vector3Length(velocity);
-				if (speed > 0.1f) {
-					float frictionForce = 0.0001f;  // tune this — lower = icier
-					Vector3 frictionDir = Vector3Negate(Vector3Normalize(velocity));
-					velocity = Vector3Add(velocity,
-						Vector3Scale(frictionDir, frictionForce * speed));
-				}
-				else {
-					velocity = { 0, 0, 0 };  // stop fully if nearly still
-				}
+				float restitution = 0.4f;  // bounciness 0-1
+				velocity = Vector3Subtract(velocity,
+					Vector3Scale(col.normal, velDot * (1.0f + restitution)));
 			}
 
-			
+			// rolling friction — gradually kills horizontal movement
+			float friction = 0.95f;  // per frame — tune this
+			velocity.x *= friction;
+			velocity.z *= friction;
 
+			// stop completely if moving very slowly
+			if (Vector3Length(velocity) < 0.05f) {
+				velocity = { 0, 0, 0 };
+			}
 
 			return true;
 		}

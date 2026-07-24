@@ -8,58 +8,35 @@
 #include <thread>
 #include <vector>
 #include <cmath>
+#include <external/glad.h>
 #include <random>
 
-#if defined(PLATFORM_DESKTOP)
-#define GLSL_VERSION            330
-#else   // PLATFORM_ANDROID, PLATFORM_WEB
-#define GLSL_VERSION            100
-#endif
+// ---------------------------------------------------------------------------
+// Scene tuning constants
+// ---------------------------------------------------------------------------
+constexpr int   SCREEN_WIDTH  = 1280;
+constexpr int   SCREEN_HEIGHT = 720;
 
-#define M_PI 3.14159265358979323846
+constexpr int   TERRAIN_WIDTH      = 150;
+constexpr int   TERRAIN_DEPTH      = 150;
+constexpr float TERRAIN_NOISE_SCALE = 0.03f;
+constexpr float TERRAIN_AMPLITUDE   = 40.0f;
 
-//drawing func of the XYZ axes
-void DrawXYZLines() {
+constexpr int   MARBLE_COUNT       = 0;
+constexpr float MARBLE_RADIUS      = 2.0f;
+constexpr float MARBLE_MASS        = 2.0f;
+constexpr float MARBLE_SPAWN_HEIGHT = 20.0f;
+constexpr float MARBLE_SPAWN_RANGE  = 135.0f; // marbles spawn at random X/Z in [0, this)
 
-    DrawCubeV(Vector3{ 5.f, 0, 0 }, Vector3{ 10,0.1,0.1 }, Color(RED));
-    DrawCubeV(Vector3{ 0, 5.f, 0 }, Vector3{ 0.1,10,0.1 }, Color(GREEN));//up
-    DrawCubeV(Vector3{ 0, 0, 5.f }, Vector3{ 0.1,0.1,10 }, Color(BLUE));//left
-}
+constexpr float PROJECTILE_SPEED     = 50.0f;
+constexpr float PROJECTILE_MAX_RANGE = 500.0f; // despawn once this far from the origin
 
-Vector3 CatchMovement() {
+constexpr float LIGHT_INTENSITY = 5.0f;
 
-    float velocity = 1.;
+constexpr int SHADOWMAP_RESOLUTION = 1024;
 
-    if (GetKeyPressed() == KEY_BACKSPACE)
-    {
-        return Vector3{ 0,velocity,0 };
-    }
-    if (GetKeyPressed() == KEY_LEFT_CONTROL)
-    {
-        return Vector3{ 0,-velocity,0 };
-    }
-    if (GetKeyPressed() == KEY_A)
-    {
-        return Vector3{ 0,0,velocity };
-    }
-    if (GetKeyPressed() == KEY_S)
-    {
-        return Vector3{ velocity,0,0 };
-    }
-    if (GetKeyPressed() == KEY_D)
-    {
-        return Vector3{ 0,0,-velocity };
-    }
-    if (GetKeyPressed() == KEY_W)
-    {
-        return Vector3{ -velocity,0,0 };
-    }
-}
-
-//degree to radians translation func 
-float DegreetoRadians(float degree) {
-    return (degree * (M_PI / 180.f));
-}
+// Foreign mesh (glTF binary) rendered alongside the procedural terrain/marbles.
+constexpr const char* IMPORTED_MODEL_PATH = "models/ManiquiMozillaLQ.glb";
 
 struct Projectile {
     Vector3 position;
@@ -67,144 +44,254 @@ struct Projectile {
     bool    active = true;
 };
 
-std::vector<Projectile> projectiles;
+// Draws a small red/green/blue gizmo along +X/+Y/+Z for orientation reference.
+void DrawXYZLines() {
+    DrawCubeV(Vector3{ 5.f, 0, 0 }, Vector3{ 10, 0.1f, 0.1f }, Color(RED));
+    DrawCubeV(Vector3{ 0, 5.f, 0 }, Vector3{ 0.1f, 10, 0.1f }, Color(GREEN)); // up
+    DrawCubeV(Vector3{ 0, 0, 5.f }, Vector3{ 0.1f, 0.1f, 10 }, Color(BLUE));  // forward
+}
+
+
+static RenderTexture2D LoadShadowmapRenderTexture(int width, int height);
+static void UnloadShadowmapRenderTexture(RenderTexture2D target);
+static void DrawScene(Model cube, Model robot);
 
 int main() {
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "VODKA");
 
-    const int screenWidth = 1280;
-    const int screenHeight = 720;
+    // -----------------------------------------------------------------------
+    // Terrain
+    // -----------------------------------------------------------------------
+    Vector3 terrainPosition{ 0, 0, 0 };
+    NoiseMap terrain(terrainPosition, TERRAIN_WIDTH, TERRAIN_DEPTH, TERRAIN_NOISE_SCALE, TERRAIN_AMPLITUDE);
 
-    InitWindow(screenWidth, screenHeight, "VODKA");
-   
-    //Objects
-    Mesh CubeMesh = GenMeshCube(2.f, 2.f, 2.f);
-    Mesh lightBulbMesh = GenMeshSphere(0.5,10,10);
-
-    Vector3 MapPosition{0,0,0 };
-    NoiseMap NM(MapPosition, 150,150,0.03,40);
-
+    // -----------------------------------------------------------------------
+    // Marbles: randomly scattered spheres that fall and collide with the terrain
+    // -----------------------------------------------------------------------
     std::vector<Marble> marbles;
-    marbles.reserve(10);
-    Mesh marbleMesh = GenMeshSphere(2,10,10);
+    marbles.reserve(MARBLE_COUNT);
+    Mesh marbleMesh = GenMeshSphere(MARBLE_RADIUS, 10, 10);
 
     std::random_device rd;
     std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> randCoord(0.0f, MARBLE_SPAWN_RANGE);
 
-    std::uniform_real_distribution<float> randFloat(0.0f, 135.0f);
-    Vector3 position{};
-
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < MARBLE_COUNT; i++)
     {
-        position = { randFloat(gen),20,randFloat(gen) };
-        marbles.emplace_back(position, marbleMesh, 2, 2, RED, false);
+        Vector3 spawnPos = { randCoord(gen), MARBLE_SPAWN_HEIGHT, randCoord(gen) };
+        marbles.emplace_back(spawnPos, marbleMesh, MARBLE_MASS, MARBLE_RADIUS, RED, false);
     }
-    
-    
 
-
+    // -----------------------------------------------------------------------
     // Camera
+    // -----------------------------------------------------------------------
     Camera camera = { 0 };
-    camera.position = Vector3{ 80.0f, 100., 90.f };
-    camera.target = Vector3{ 75.0f, -1.0f, 75.0f };
-    camera.up = Vector3{ 0.0f, 1.0f, 0.0f };
-    camera.fovy = 45.0f;
-    
+    camera.position   = Vector3{ 80.0f, 100.0f, 90.0f };
+    camera.target     = Vector3{ 75.0f, -1.0f, 75.0f };
+    camera.up         = Vector3{ 0.0f, 1.0f, 0.0f };
+    camera.fovy       = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
-    Vector3 lightPos = {60,60,60};
+    // Single point light shared by every lit shader in the scene (marbles,
+    // imported model, terrain). Drawn as a yellow sphere so it's visible too.
+    Vector3 lightPos = { 60, 10, 60 };
+    float nearPlane = 0.1f, farPlane = 50.0f;
+    Matrix shadowProj = MatrixPerspective(90.0f * DEG2RAD, 1.0f, nearPlane, farPlane);
 
-    //textures
-    Texture2D texture = LoadTexture("textures/dora2.jpg");
+    Vector3 targets[6] = {
+        {1,0,0}, {-1,0,0}, {0,1,0}, {0,-1,0}, {0,0,1}, {0,0,-1}
+    };
+    Vector3 ups[6] = {
+        {0,-1,0}, {0,-1,0}, {0,0,1}, {0,0,-1}, {0,-1,0}, {0,-1,0}
+    };
 
-    //shaders
-    Shader shader = LoadShader(0, "shaders/lighting.frag");
-    Shader TerrainShader = LoadShader("shaders/terrain.vert", "shaders/terrain.frag");
-
-    for (size_t i = 0; i < marbles.size(); i++)
+    rlEnableFramebuffer(shadowCubemap.id);
+    for (int i = 0; i < 6; i++)
     {
-        marbles[i].setTerrain(&NM);
-        marbles[i].setTiling(1.f, 1.f);
-        marbles[i].SetShader(shader);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+            GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, shadowCubemap.depth.id, 0);
+
+        rlClearScreenBuffers(); // clears depth for this face
+        Matrix shadowView = MatrixLookAt(lightPos, Vector3Add(lightPos, targets[i]), ups[i]);
+
+        rlSetMatrixProjection(shadowProj);
+        rlSetMatrixModelview(shadowView);
+
+        DrawSceneForShadows(); // your draw calls, using the pointDepthShader below
+    }
+    rlDisableFramebuffer();
+
+    // Loaded but not yet assigned to a material (marbles currently render
+    // with a flat color) - wire it up with SetMaterialMapDiffuse() when needed.
+    Texture2D marbleTexture = LoadTexture("textures/dora2.jpg");
+
+    // -----------------------------------------------------------------------
+    // Shaders
+    //   - `shader`: generic lit shader (Lambert + specular), used by marbles
+    //     and the imported model.
+    //   - `terrainShader`: bespoke shader that colors the terrain by height
+    //     and computes its own normals via screen-space derivatives (the
+    //     terrain mesh doesn't upload vertex normals).
+    // Both read the same `lightPos` so everything is lit consistently.
+    // -----------------------------------------------------------------------
+    Shader shader        = LoadShader("shaders/lighting.vert", "shaders/lighting.frag");
+    Shader terrainShader = LoadShader("shaders/terrain.vert", "shaders/terrain.frag");
+
+    int lightPosLoc = GetShaderLocation(shader, "lightPos");
+    int viewPosLoc  = GetShaderLocation(shader, "viewPos");
+    SetShaderValue(shader, GetShaderLocation(shader, "lightIntensity"), &LIGHT_INTENSITY, SHADER_UNIFORM_FLOAT);
+
+    for (auto& marble : marbles)
+    {
+        marble.setTerrain(&terrain);
+        marble.setTiling(1.0f, 1.0f);
+        marble.SetShader(shader);
     }
 
-                    
-    //o1.SetMaterialMapDiffuse(texture);
-    NM.SetShader(TerrainShader);
+    terrain.SetShader(terrainShader);
 
-    auto start = std::chrono::high_resolution_clock::now();
+    // -----------------------------------------------------------------------
+    // Imported mesh: loaded from disk (glTF/OBJ/etc, anything raylib's
+    // LoadModel supports) rather than generated procedurally like the
+    // marbles/terrain above. Shares the same lit shader as the marbles.
+    // -----------------------------------------------------------------------
+    Model importedModel = LoadModel(IMPORTED_MODEL_PATH);
+    for (int i = 0; i < importedModel.materialCount; i++)
+    {
+        importedModel.materials[i].shader = shader;
+    }
+    Vector3 importedModelPosition = { 75.0f, terrain.getHeightAt(75.0f, 75.0f), 75.0f };
+
+    std::vector<Projectile> projectiles;
 
     DisableCursor();
     SetTargetFPS(120);
 
+    auto lastFrameTime = std::chrono::high_resolution_clock::now();
+
     while (!WindowShouldClose()) {
+        // --- Update -----------------------------------------------------
         UpdateCamera(&camera, CAMERA_FREE);
 
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        auto m_DeltadTime = std::chrono::duration<float>(currentTime - start).count();
-        start = currentTime;
-       
-        for (size_t i = 0; i < marbles.size(); i++)
-        {
-            marbles[i].update(m_DeltadTime);
-            
-        }
-        float speed = m_DeltadTime * 2;
+        auto now = std::chrono::high_resolution_clock::now();
+        float deltaTime = std::chrono::duration<float>(now - lastFrameTime).count();
+        lastFrameTime = now;
 
+        for (auto& marble : marbles)
+        {
+            marble.update(deltaTime);
+        }
+
+        // Fire a projectile from the camera, in the direction it's facing.
         if (IsKeyPressed(KEY_K)) {
             Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
-            float   speed = 50.0f;
 
             Projectile p;
-            p.position = camera.position;           // start at camera
-            p.velocity = Vector3Scale(forward, speed); // shoot forward
+            p.position = camera.position;
+            p.velocity = Vector3Scale(forward, PROJECTILE_SPEED);
             projectiles.push_back(p);
         }
 
         for (auto& p : projectiles) {
-            p.position = Vector3Add(p.position, Vector3Scale(p.velocity, m_DeltadTime));
-
-            // deactivate if too far
-            if (Vector3Length(p.position) > 500.0f) p.active = false;
+            p.position = Vector3Add(p.position, Vector3Scale(p.velocity, deltaTime));
+            if (Vector3Length(p.position) > PROJECTILE_MAX_RANGE) p.active = false;
         }
 
-        // remove inactive projectiles
         projectiles.erase(
             std::remove_if(projectiles.begin(), projectiles.end(),
                 [](const Projectile& p) { return !p.active; }),
             projectiles.end()
         );
 
-        //marble.debugPrint();
-
+        // --- Draw ---------------------------------------------------------
         BeginDrawing();
         ClearBackground(DARKGRAY);
-          BeginMode3D(camera);
+        BeginMode3D(camera);
 
-           NM.updateShader(lightPos);
+            // Push the current light/camera position to every lit shader
+            // before drawing anything that uses them this frame.
+            terrain.updateShader(lightPos);
+            SetShaderValue(shader, lightPosLoc, &lightPos, SHADER_UNIFORM_VEC3);
+            SetShaderValue(shader, viewPosLoc, &camera.position, SHADER_UNIFORM_VEC3);
 
-           DrawXYZLines();
-           DrawGrid(10, 1.0f);
+            DrawXYZLines();
+            DrawGrid(10, 1.0f);
 
-           for (auto& p : projectiles) {
-               DrawSphere(p.position, 0.3f, YELLOW);
-           }
-           
-           for (size_t i = 0; i < marbles.size(); i++)
-           {
-               marbles[i].draw();
-           }
-           NM.draw();
-           //NM.drawNormals(2.0f,10);
-           DrawSphere(lightPos,0.5,YELLOW);
+            DrawModel(importedModel, importedModelPosition, 1.0f, WHITE);
 
-          EndMode3D();
+            for (auto& p : projectiles) {
+                DrawSphere(p.position, 0.3f, YELLOW);
+            }
+
+            for (auto& marble : marbles)
+            {
+                marble.draw();
+            }
+
+            terrain.draw();
+            DrawSphere(lightPos, 0.5f, YELLOW);
+
+        EndMode3D();
         DrawFPS(10, 20);
         EndDrawing();
     }
 
-    UnloadTexture(texture);
+    UnloadTexture(marbleTexture);
+    UnloadModel(importedModel);
     CloseWindow();
 
     return 0;
 }
 
+// Load render texture for shadowmap projection
+// NOTE: Load framebuffer with only a texture depth attachment,
+// no color attachment required for shadowmap
+
+static RenderTexture2D LoadShadowCubemapRenderTexture(int size)
+{
+    RenderTexture2D target = { 0 };
+    target.id = rlLoadFramebuffer();
+    target.texture.width = size;
+    target.texture.height = size;
+
+    if (target.id > 0)
+    {
+        rlEnableFramebuffer(target.id);
+
+        // Create a depth CUBEMAP instead of a single depth texture
+        unsigned int depthCubemapId = 0;
+        glGenTextures(1, &depthCubemapId);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemapId);
+
+        for (int i = 0; i < 6; i++)
+        {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT,
+                         size, size, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+        }
+
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+        target.depth.id = depthCubemapId;
+        target.depth.width = size;
+        target.depth.height = size;
+        target.depth.mipmaps = 1;
+
+        rlDisableFramebuffer();
+    }
+
+    return target;
+}
+// Unload shadowmap render texture from GPU memory (VRAM)
+static void UnloadShadowmapRenderTexture(RenderTexture2D target)
+{
+    if (target.id > 0)
+    {
+        // NOTE: Depth texture/renderbuffer is automatically
+        // queried and deleted before deleting framebuffer
+        rlUnloadFramebuffer(target.id);
+    }
+}

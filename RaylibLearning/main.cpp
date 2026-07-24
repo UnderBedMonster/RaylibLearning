@@ -98,9 +98,6 @@ int main() {
         position = { randFloat(gen),20,randFloat(gen) };
         marbles.emplace_back(position, marbleMesh, 2, 2, RED, false);
     }
-    
-    
-
 
     // Camera
     Camera camera = { 0 };
@@ -112,7 +109,7 @@ int main() {
     camera.projection = CAMERA_PERSPECTIVE;
 
     Vector3 lightPos = {60,60,60};
-
+    
     //textures
     Texture2D texture = LoadTexture("textures/dora2.jpg");
 
@@ -127,7 +124,6 @@ int main() {
         marbles[i].SetShader(shader);
     }
 
-                    
     //o1.SetMaterialMapDiffuse(texture);
     NM.SetShader(TerrainShader);
 

@@ -15,13 +15,15 @@ class PhysicalObj
 public:
 
 	Vector3 Position;
-	Mesh ObjMesh;
-	std::vector<Vector3> objVertices{0};
-	Model Model;
+	Vector3 Direction = { 1.0f, 0.0f, 0.0f };
+	Model ObjModel;
+	int ObjModelIndex = 0;
+	int ObjMaterialSetIndex =0;
+	float ModelScale = 20.0f;
 	float ObjMass;
 	Vector3 Velocity;
 	QuaternionR rotation;
-	Color color = WHITE;
+	Color color = RED;
 
 	bool inCollisionWithterrain = false;
 	
@@ -29,13 +31,11 @@ public:
 	int tilingLocation;
 	int textureLocation;
 
-	PhysicalObj(Vector3 pos, Mesh objmesh, float mass) {
+	PhysicalObj(Vector3 pos, Model& model, float mass) {
 		Position = pos;
-		ObjMesh = objmesh;
-		Model = LoadModelFromMesh(ObjMesh);
+		ObjModel = model;
 		ObjMass = mass;
-		Velocity = { 0.f, 0.f, 0.f }; 
-		makeVertices();
+		Velocity = { 0.f, 0.f, 0.f };
 	}
 
 	~PhysicalObj(){}
@@ -43,40 +43,25 @@ public:
 	void setTiling(float i, float j) {
 		tiling[0] = i;
 		tiling[1] = j;
-		SetShaderValue(Model.materials[0].shader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
+		SetShaderValue(ObjModel.materials[ObjMaterialSetIndex].shader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
 	}
-
-	void updateModel() {
-		Model = LoadModelFromMesh(ObjMesh);
+	void setScale(float scale) {
+		ModelScale = scale;
 	}
-
-	void updateMesh() {
-		int meshPointer = 0;
-		for (size_t i = 0; i < objVertices.size(); i++)
-		{
-			ObjMesh.vertices[meshPointer++] = objVertices[i].x;
-			ObjMesh.vertices[meshPointer++] = objVertices[i].y;
-			ObjMesh.vertices[meshPointer++] = objVertices[i].z;
-		}
-	}
-
-	void makeVertices() {
-		for (size_t i = 0; i < ObjMesh.vertexCount; i+=3)
-		{
-			objVertices.push_back(Vector3{ObjMesh.vertices[i], ObjMesh.vertices[i+1], ObjMesh.vertices[i+2]});
-		}
-	}
-
 	void printvertices() {
-		for (int i = 0; i < objVertices.size(); i++)
+		for (int i = 0; i < ObjModel.meshes[ObjModelIndex].vertexCount; i++)
 		{
 		std::cout 
 			<< "Point " << i << ": "  
-			<< "x:" << objVertices[i].x
-			<< " y:" << objVertices[i].y 
-			<< " z:" << objVertices[i].z 
+			<< "x:" << ObjModel.meshes[ObjModelIndex].vertices[i * 3]
+			<< " y:" << ObjModel.meshes[ObjModelIndex].vertices[i * 3 + 1]
+			<< " z:" << ObjModel.meshes[ObjModelIndex].vertices[i * 3 + 2]
 			<< std::endl;
 		}
+	}
+
+	void changeDirection(Vector3 newDirection) {
+		Direction = newDirection;
 	}
 
 	void Gravity(float deltaTime)
@@ -110,24 +95,27 @@ public:
 	}
 
 	void SetMaterialMapDiffuse(Texture2D texture) {
-		Model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+		ObjModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 	}
 
 	void SetShader(Shader shader) {
-		Model.materials[0].shader = shader;
-		tilingLocation = GetShaderLocation(Model.materials[0].shader, "tiling");
-		textureLocation = GetShaderLocation(Model.materials[0].shader, "texture0");
-		SetShaderValue(Model.materials[0].shader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
+		for (size_t i = 0; i < ObjModel.materialCount; i++)
+		{
+		ObjModel.materials[i].shader = shader;
+		tilingLocation = GetShaderLocation(ObjModel.materials[i].shader, "tiling");
+		textureLocation = GetShaderLocation(ObjModel.materials[i].shader, "texture0");
+		SetShaderValue(ObjModel.materials[i].shader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
+		}
 	}
 
 	Shader getShader() {
-		return Model.materials[0].shader;
+		return ObjModel.materials[0].shader;
 	}
 
 	void draw()
 	{	
-		Model.transform = rotation.toMatrix();
-		DrawModel(Model, Position, 1.0f, color);
+		ObjModel.transform = rotation.toMatrix();
+		DrawModel(ObjModel, Position, ModelScale, color);
 	};
 };
 

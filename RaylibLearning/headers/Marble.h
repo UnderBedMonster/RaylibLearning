@@ -15,8 +15,8 @@ public:
 
 	void setTerrain(Terrain* t) { terrain = t; }
 
-	Marble(Vector3 pos, Mesh objmesh, float mass, float r, Color c, bool b)
-		:PhysicalObj(pos, objmesh, mass) {
+	Marble(Vector3 pos, Model model, float mass, float r, Color c, bool b)
+		:PhysicalObj(pos, model, mass) {
 		colBox = new SphereColBox(pos, r); 
 		radius = r;
 		color = c;

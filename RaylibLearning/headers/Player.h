@@ -25,8 +25,8 @@ public:
 	Terrain* terrain = nullptr;
 	void setTerrain(Terrain* t) { terrain = t; }
 
-	Player(Vector3 pos, Mesh objmesh, float mass, Vector3 halfExtentsIn, float eyeHeightIn, Color c)
-		: PhysicalObj(pos, objmesh, mass) {
+	Player(Vector3 pos,Model model, float mass, Vector3 halfExtentsIn, float eyeHeightIn, Color c)
+		: PhysicalObj(pos, model, mass) {
 		colBox = new BoxColBox(pos, halfExtentsIn);
 		halfExtents = halfExtentsIn;
 		eyeHeight = eyeHeightIn;

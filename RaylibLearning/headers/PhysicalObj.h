@@ -120,6 +120,10 @@ public:
 		SetShaderValue(Model.materials[0].shader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
 	}
 
+	Shader getShader() {
+		return Model.materials[0].shader;
+	}
+
 	void draw()
 	{	
 		Model.transform = rotation.toMatrix();

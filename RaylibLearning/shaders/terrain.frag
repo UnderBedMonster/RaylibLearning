@@ -12,11 +12,31 @@ uniform float maxHeight;
 uniform vec3 lightPos;
 uniform float lightIntensity;
 
+uniform samplerCube shadowCubemap;
+uniform float farPlane;
 
 out vec4 finalColor;
 
+float ShadowCalculation(vec3 fragPos, vec3 normal, vec3 lightDir)
+{
+    vec3 fragToLight = fragPos - lightPos;
+    float closestDepth = texture(shadowCubemap, fragToLight).r * farPlane;
+    float currentDepth = length(fragToLight);
+
+    // Slope-scaled bias: grazing-angle surfaces need a much bigger bias to
+    // avoid self-shadowing acne than surfaces facing the light head-on.
+    float cosTheta = clamp(dot(normal, lightDir), 0.0, 1.0);
+    float bias = max(1.0 * (1.0 - cosTheta), 0.05);
+
+    return currentDepth - bias > closestDepth ? 1.0 : 0.0; // 1.0 = in shadow
+}
+
 void main()
 {
+
+    float lightDistance = length(fragPos - lightPos);
+    lightDistance = lightDistance / farPlane;
+
     float t = (fragHeight - minHeight) / (maxHeight - minHeight);
     t = clamp(t, 0.0, 1.0);
 
@@ -43,8 +63,11 @@ void main()
 
     float diffuse  = max(dot(flatNormal, lightDir), 0.0);
     float ambient  = 0.15;
-    float light    = ambient + diffuse * attenuation * lightIntensity;
+    float shadow = ShadowCalculation(fragPos, flatNormal, lightDir);
+    float light = ambient + (1.0 - shadow) * diffuse * attenuation * lightIntensity;
 
 
     finalColor = vec4(color * light,1.0);
 }
+
+

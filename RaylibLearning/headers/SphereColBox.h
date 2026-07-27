@@ -6,7 +6,8 @@
 #include <rlgl.h>
 #include <chrono>
 #include <vector>
-#include "NoiseMap.h"
+#include "Terrain.h"
+#include "TerrainCollisionResponse.h"
 
 class SphereColBox
 {
@@ -36,43 +37,30 @@ public:
 			return false;
 		}
 	}
-	bool resolveSphereTerrainCollision(NoiseMap &terrain, Vector3& velocity) {
+	// maxWalkableAngleDeg: slopes shallower than this stop the sphere dead
+	// (no downhill slide from gravity's tangential component). Slopes at or
+	// past it are treated as too steep to stand on, so the old
+	// friction/slide behavior still applies there. Default of 0 keeps every
+	// slope in the "too steep" branch, i.e. today's always-slide behavior,
+	// so existing callers (Marble) are unaffected unless they opt in.
+	bool resolveSphereTerrainCollision(Terrain &terrain, Vector3& velocity, float maxWalkableAngleDeg = 0.0f) {
 
-		Vector3 closestVertex = terrain.getClosestVertex(center);
-		Vector3 dir = Vector3Normalize(Vector3Subtract(closestVertex, center));
+		// Sample the heightfield directly under the sphere rather than
+		// raycasting toward the nearest mesh vertex: a ray aimed at the
+		// nearest vertex comes in at a slant whenever the sphere isn't
+		// sitting right above a vertex, so its hit distance overshoots the
+		// true (vertical) penetration depth and the sphere falls through.
+		// getHeightAt() is continuous, so this works the same everywhere on
+		// the surface, vertex-aligned or not.
+		float groundY = terrain.getHeightAt(center.x, center.z);
+		float penetration = (groundY + radius) - center.y;
 
-		Ray ray;
-		ray.position = center;
-		ray.direction = dir;
-
-		RayCollision col = GetRayCollisionMesh(ray, terrain.mesh, terrain.model.transform);
-
-		if (col.hit && col.distance <= radius) {
-
-			
-			float sinkDepth = radius - col.distance;
-			center = Vector3Add(center, Vector3Scale(col.normal, sinkDepth));
-			//remove velocity going INTO surface
-			float velDot = Vector3DotProduct(velocity, col.normal);
-			if (velDot < 0) {
-				velocity = Vector3Subtract(velocity, Vector3Scale(col.normal, velDot));
-
-
-				float speed = Vector3Length(velocity);
-				if (speed > 0.1f) {
-					float frictionForce = 0.0001f;  // tune this — lower = icier
-					Vector3 frictionDir = Vector3Negate(Vector3Normalize(velocity));
-					velocity = Vector3Add(velocity,
-						Vector3Scale(frictionDir, frictionForce * speed));
-				}
-				else {
-					velocity = { 0, 0, 0 };  // stop fully if nearly still
-				}
-			}
-
-			
-
-
+		if (penetration > 0.0f) {
+			// Slope normal via central differences of the height field, so
+			// this still deflects velocity correctly on sloped (NoiseMap)
+			// terrain, not just flat ground.
+			Vector3 normal = ComputeTerrainNormal(terrain, center.x, center.z);
+			ApplyTerrainGroundResponse(center, velocity, normal, penetration, maxWalkableAngleDeg);
 			return true;
 		}
 		return false;

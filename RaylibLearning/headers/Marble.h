@@ -1,6 +1,7 @@
 #pragma once
 #include "PhysicalObj.h"
 #include "SphereColBox.h"
+#include "Terrain.h"
 
 
 class Marble : public PhysicalObj
@@ -10,9 +11,9 @@ public:
 	float radius;
 	bool isBouncy;
 
-	NoiseMap* terrain = nullptr;  // store reference to terrain
+	Terrain* terrain = nullptr;  // store reference to terrain
 
-	void setTerrain(NoiseMap* t) { terrain = t; }
+	void setTerrain(Terrain* t) { terrain = t; }
 
 	Marble(Vector3 pos, Mesh objmesh, float mass, float r, Color c, bool b)
 		:PhysicalObj(pos, objmesh, mass) {
@@ -45,7 +46,7 @@ public:
 		printf("pos:     %.2f %.2f %.2f\n", Position.x, Position.y, Position.z);
 		printf("vel:     %.2f %.2f %.2f\n", Velocity.x, Velocity.y, Velocity.z);
 		printf("falling: %s\n", inCollisionWithterrain ? "true" : "false");
-		printf("\033[3A");  // go back up 3 lines — must match number of printfs
+		printf("\033[3A");  // go back up 3 lines ï¿½ must match number of printfs
 	}
 };
 

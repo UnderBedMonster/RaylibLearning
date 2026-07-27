@@ -69,6 +69,7 @@
   <ItemGroup>
     <None Include="shaders\lighting.vert" />
     <None Include="shaders\lighting.frag" />
+    <None Include="..\..\..\..\..\Downloads\anime-girl-casual-outfit-stylized-3d-character.zip" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="textures\501900de698c47670536071a511ef8f9.jpg">

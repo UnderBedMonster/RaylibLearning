@@ -152,6 +152,7 @@
     <ClInclude Include="headers\Terrain.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\..\..\..\Downloads\anime-girl-casual-outfit-stylized-3d-character.zip" />
     <None Include="shaders\lighting.frag">
       <FileType>Document</FileType>
     </None>
